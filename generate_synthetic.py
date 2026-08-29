@@ -1,14 +1,3 @@
-"""
-Generates a synthetic transaction dataset with interpretable, fraud-relevant
-features. We use synthetic data instead of the public Kaggle credit card
-dataset on purpose: that dataset's features (V1-V28) are PCA-anonymized and
-NOT human-readable, which breaks the "explain why this was flagged" pitch.
-These features are things you can actually narrate in a demo.
-
-Run: python generate_synthetic.py
-Output: transactions.csv in this folder
-"""
-
 import os
 
 import numpy as np
@@ -26,23 +15,23 @@ n_legit = N_SAMPLES - n_fraud
 def make_legit(n):
     return pd.DataFrame({
         "amount": np.round(np.random.lognormal(mean=6.5, sigma=1.0, size=n), 2),
-        "txn_velocity_1min": np.random.poisson(0.3, size=n),       # txns in last 60s
-        "geo_distance_km": np.abs(np.random.normal(5, 8, size=n)), # distance from last known location
-        "is_new_device": np.random.choice([0, 1], size=n, p=[0.92, 0.08]),
-        "hour_of_day": np.random.normal(14, 4, size=n).clip(0, 23).astype(int),
-        "merchant_risk_score": np.random.beta(2, 8, size=n),       # 0-1, most merchants low risk
+        "txn_velocity_1min": np.random.poisson(0.5, size=n),        # txns in last 60s
+        "geo_distance_km": np.abs(np.random.normal(20, 40, size=n)),# distance from last known location
+        "is_new_device": np.random.choice([0, 1], size=n, p=[0.85, 0.15]),
+        "hour_of_day": np.random.normal(14, 5, size=n).clip(0, 23).astype(int),
+        "merchant_risk_score": np.random.beta(2, 6, size=n),        # 0-1, most merchants low risk
         "label": 0,
     })
 
 
 def make_fraud(n):
     return pd.DataFrame({
-        "amount": np.round(np.random.lognormal(mean=7.5, sigma=1.3, size=n), 2),
-        "txn_velocity_1min": np.random.poisson(3.5, size=n),
-        "geo_distance_km": np.abs(np.random.normal(300, 200, size=n)),
-        "is_new_device": np.random.choice([0, 1], size=n, p=[0.35, 0.65]),
-        "hour_of_day": np.random.normal(3, 3, size=n).clip(0, 23).astype(int),
-        "merchant_risk_score": np.random.beta(5, 3, size=n),
+        "amount": np.round(np.random.lognormal(mean=7.0, sigma=1.4, size=n), 2),
+        "txn_velocity_1min": np.random.poisson(2.0, size=n),
+        "geo_distance_km": np.abs(np.random.normal(120, 150, size=n)),
+        "is_new_device": np.random.choice([0, 1], size=n, p=[0.55, 0.45]),
+        "hour_of_day": np.random.normal(7, 6, size=n).clip(0, 23).astype(int),
+        "merchant_risk_score": np.random.beta(4, 4, size=n),
         "label": 1,
     })
 
