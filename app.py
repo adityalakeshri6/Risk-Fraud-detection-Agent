@@ -34,7 +34,7 @@ TYPICAL = {
 
 
 class Transaction(BaseModel):
-    amount: float = Field(..., description="Transaction amount in INR")
+    amount: float = Field(..., ge=0, description="Transaction amount in INR")
     txn_velocity_1min: int = Field(..., description="Transactions from this user in the last 60s")
     geo_distance_km: float = Field(..., description="Distance from user's last known location, km")
     is_new_device: int = Field(..., ge=0, le=1)
