@@ -3,9 +3,19 @@ import os
 import joblib
 import pandas as pd
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="Fraud/Risk Detection Agent")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 bundle = joblib.load("models/fraud_model.joblib")
 model = bundle["model"]
@@ -81,6 +91,14 @@ def score_transaction(txn: Transaction):
     }
 
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "POST a transaction to /score"}
+    return FileResponse("static/index.html")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
