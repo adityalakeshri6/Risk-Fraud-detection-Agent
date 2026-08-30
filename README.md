@@ -74,9 +74,3 @@ unaffected.
 transaction on the left, see it appear as a stamped ledger entry on the
 right (CLEARED / FLAGGED), with the risk score, top contributing factors,
 and plain-English explanation.
-
-## Still to do
-
-- Record the pitch video (problem -> live demo -> what broke -> why this
-  matters for Razorpay specifically)
-- Final polish pass on the repo before submission
