@@ -1,6 +1,8 @@
-# Fraud/Risk Detection Agent — Day 1
+# Fraud/Risk Detection Agent
 
-Baseline model for the Razorpay AI Buildathon submission.
+Built for the Razorpay AI Buildathon submission — scores transactions for
+fraud risk in real time and explains the "why" in plain English instead of
+just returning a number.
 
 ## Why synthetic data instead of Kaggle's Credit Card Fraud dataset
 
@@ -17,27 +19,64 @@ project uses a synthetic dataset with interpretable features instead:
 pip install -r requirements.txt
 python data/generate_synthetic.py   # writes data/transactions.csv
 python train_model.py               # trains + saves models/fraud_model.joblib
+export ANTHROPIC_API_KEY=your_key_here   # optional — falls back to a template without it
+uvicorn app:app --reload
 ```
 
-## Current result
+Then open `http://localhost:8000` — the demo UI loads directly.
 
-ROC-AUC ~1.00 on the held-out set — expected, since the synthetic fraud/legit
-distributions are cleanly separated right now. `geo_distance_km` dominates
-feature importance (0.94), meaning the model is basically only using
-location right now.
+## Architecture
 
-**This is your Day 4 "what broke" story**: a model that's *too* easy is a
-red flag in a real pitch — it means the synthetic data isn't realistic
-enough yet, or the model is leaning on one signal. Before Day 4, consider:
-- Adding overlapping noise between fraud/legit distributions so no single
-  feature fully separates them
-- Checking the confusion matrix, not just AUC, once the model is less perfect
-- Explicitly calling this out in your pitch video as something you caught
-  and fixed — panels want to see you notice a "too good to be true" model,
-  not just report a good number
+1. **Signal layer** — six interpretable transaction features (see above)
+2. **Scoring layer** — a `GradientBoostingClassifier` (scikit-learn) outputs
+   a 0-1 risk score
+3. **Explanation layer** — the top contributing features + score are sent
+   to the Claude API, which generates a short, specific, human-readable
+   explanation of the flag
 
-## Next steps (Day 2)
+`app.py` exposes this as a FastAPI `POST /score` endpoint and also serves
+the demo frontend at `/`.
 
-- Wrap `models/fraud_model.joblib` in a FastAPI endpoint
-- Feed the top contributing features into the Claude API to generate a
-  plain-English explanation per transaction
+## Model iteration log
+
+**v1 (Day 1):** ROC-AUC ~1.00 — too perfect. `geo_distance_km` alone
+accounted for 94% of feature importance, meaning the model was basically a
+single-feature threshold in disguise, not a real multi-signal fraud model.
+
+**v2 (current):** added realistic overlap between the fraud/legit synthetic
+distributions so no single feature fully separates the classes. Result:
+ROC-AUC 0.986, fraud recall 68% / precision 91%, and importance now spread
+across `geo_distance_km` (57%), `merchant_risk_score` (18%),
+`hour_of_day` (12%), and the rest. A believable model, not a toy.
+
+## What broke (Day 4 stress test)
+
+Ran edge cases against `/score`: extreme amounts, zero values, missing
+fields, out-of-range values, wrong types, and negative amounts.
+
+**Worked correctly already:** missing fields, out-of-range
+`hour_of_day`/`merchant_risk_score`, and wrong types were all correctly
+rejected with clear `422` errors — Pydantic validation was doing its job.
+
+**Bug found:** negative transaction amounts (`amount: -500`) were silently
+accepted and scored as a normal low-risk transaction. A fraud scorer that
+happily scores nonsensical input isn't trustworthy input handling for a
+payments company.
+
+**Fix:** added a `ge=0` constraint to the `amount` field, so negative
+amounts are now rejected at the validation layer before reaching the model.
+Verified the fix rejects negative amounts while leaving normal transactions
+unaffected.
+
+## Frontend
+
+`static/index.html` — a single-page demo ("The Risk Ledger"). Submit a
+transaction on the left, see it appear as a stamped ledger entry on the
+right (CLEARED / FLAGGED), with the risk score, top contributing factors,
+and plain-English explanation.
+
+## Still to do
+
+- Record the pitch video (problem -> live demo -> what broke -> why this
+  matters for Razorpay specifically)
+- Final polish pass on the repo before submission
