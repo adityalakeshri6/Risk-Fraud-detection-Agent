@@ -20,6 +20,27 @@ app.add_middleware(
 bundle = joblib.load("models/fraud_model.joblib")
 model = bundle["model"]
 FEATURES = bundle["features"]
+# The threshold below the fraud/legit boundary picked during training via
+# threshold analysis on the held-out test set (see train_model.py) — not
+# an arbitrary 0.5 default.
+THRESHOLD = bundle["threshold"]
+
+# Deterministic decision policy: the risk score alone doesn't decide
+# anything. A transaction below THRESHOLD is approved; between THRESHOLD
+# and BLOCK_THRESHOLD it goes to manual review; above BLOCK_THRESHOLD it's
+# blocked outright. Claude explains this decision — it never makes it.
+BLOCK_THRESHOLD = min(THRESHOLD + 0.3, 0.95)
+
+
+def decide(risk_score: float) -> tuple[str, str]:
+    """Returns (risk_level, decision) from the risk score, using the
+    thresholds above. Purely deterministic — no model or LLM call here."""
+    if risk_score < THRESHOLD:
+        return "LOW", "APPROVE"
+    elif risk_score < BLOCK_THRESHOLD:
+        return "MEDIUM", "REVIEW"
+    else:
+        return "HIGH", "BLOCK"
 
 # Rough human-readable baselines, used to describe how unusual a value is.
 # In a real system these would come from the merchant/user's own history.
@@ -78,6 +99,8 @@ def score_transaction(txn: Transaction):
     row = pd.DataFrame([txn.model_dump()])[FEATURES]
     risk_score = float(model.predict_proba(row)[0][1])
 
+    risk_level, decision = decide(risk_score)
+
     importances = model.feature_importances_
     contributions = sorted(zip(FEATURES, importances), key=lambda x: -x[1])
 
@@ -85,7 +108,9 @@ def score_transaction(txn: Transaction):
 
     return {
         "risk_score": round(risk_score, 4),
-        "flag": "high_risk" if risk_score > 0.5 else "low_risk",
+        "risk_level": risk_level,
+        "decision": decision,
+        "threshold": THRESHOLD,
         "top_factors": [name for name, _ in contributions[:3]],
         "explanation": explanation,
     }
