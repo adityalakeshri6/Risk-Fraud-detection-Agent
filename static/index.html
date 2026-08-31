@@ -271,6 +271,7 @@
   }
 
   .stamp.low { color: var(--green); }
+  .stamp.medium { color: var(--amber); }
   .stamp.high { color: var(--red); }
 
   footer {
@@ -378,11 +379,12 @@
       document.getElementById('ledger').innerHTML = '';
       firstEntry = false;
     }
-    const isHigh = result.flag === 'high_risk';
+    const decision = result.decision; // APPROVE / REVIEW / BLOCK
+    const stampClass = decision === 'APPROVE' ? 'low' : decision === 'BLOCK' ? 'high' : 'medium';
     const el = document.createElement('div');
     el.className = 'entry';
     el.innerHTML = `
-      <div class="stamp ${isHigh ? 'high' : 'low'}">${isHigh ? 'FLAGGED' : 'CLEARED'}</div>
+      <div class="stamp ${stampClass}">${decision}</div>
       <div class="entry-top">
         <div class="entry-amount">₹${payload.amount.toLocaleString('en-IN')}</div>
         <div class="entry-score">risk ${(result.risk_score * 100).toFixed(1)}%</div>
