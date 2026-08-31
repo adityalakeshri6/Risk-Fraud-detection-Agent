@@ -68,7 +68,54 @@ amounts are now rejected at the validation layer before reaching the model.
 Verified the fix rejects negative amounts while leaving normal transactions
 unaffected.
 
-## Frontend
+## Decision policy
+
+The API doesn't just return a risk score — it makes a deterministic
+decision: **APPROVE**, **REVIEW**, or **BLOCK**. This is a plain threshold
+check on the risk score, computed in Python, with no model or LLM call
+involved:
+
+- risk_score < threshold → **APPROVE**
+- threshold ≤ risk_score < threshold + 0.3 → **REVIEW**
+- risk_score ≥ threshold + 0.3 → **BLOCK**
+
+The threshold itself (0.4, not the default 0.5) was chosen by evaluating
+precision/recall/F1 at seven thresholds (0.3–0.9) on the held-out test set
+and picking the one with the best F1 score — see the "Threshold analysis"
+output when you run `train_model.py`. It's saved alongside the model and
+loaded by the API rather than hardcoded, so retraining automatically
+updates the live threshold.
+
+**Claude explains the decision — it never makes it.** The explanation
+layer receives the already-decided risk level and top contributing
+features, and its job is only to phrase that in plain English for a risk
+analyst. If Claude is unavailable, the decision is unaffected; only the
+explanation text falls back to a template (see "What broke" below).
+
+## Limitations
+
+Being upfront about what this project is and isn't:
+
+- **Synthetic data only.** The dataset is generated, not real transaction
+  history. The precision/recall/F1/threshold numbers above are honest
+  results *on this synthetic data* — they say nothing about how the model
+  would perform on real payment traffic.
+- **Small feature set.** Six features is enough to build and explain a
+  working pipeline, but a production fraud model would use dozens of
+  signals (device fingerprinting, historical user/merchant behavior,
+  network-level signals, etc.).
+- **No real merchant or user history.** The "typical" baseline values used
+  in explanations are hardcoded estimates, not learned from actual
+  account history.
+- **Threshold picked by F1, not business cost.** Best-F1 is a reasonable
+  default, but a real deployment would weigh false positives (blocking a
+  legitimate customer) against false negatives (letting fraud through)
+  using actual cost estimates, which this project doesn't model.
+- **Not validated against adversarial or drifting fraud patterns.** Real
+  fraud adapts over time; this model was trained and evaluated once on a
+  static synthetic snapshot.
+
+
 
 `static/index.html` — a single-page demo ("The Risk Ledger"). Submit a
 transaction on the left, see it appear as a stamped ledger entry on the
